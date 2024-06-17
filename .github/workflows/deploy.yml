@@ -76,15 +76,13 @@ jobs:
           yarn install --no-immutable
       - name: Build Snap
         run: |
-          PRE_VERSION="$VERSION"
-
-          npm --prefix ./packages/starknet-snap version --new-version "$PRE_VERSION" --no-git-tag-version --allow-same-version
+          npm --prefix ./packages/starknet-snap version --new-version "$VERSION" --no-git-tag-version --allow-same-version
 
           yarn workspace @consensys/starknet-snap build
 
           BUILD_VERSION=$(node -p "require('./packages/starknet-snap/package.json').version")
           
-          if [[ "$PRE_VERSION" != "$BUILD_VERSION" ]]; then
+          if [[ "$VERSION" != "$BUILD_VERSION" ]]; then
             echo "Version mismatch"
             exit 1
           fi

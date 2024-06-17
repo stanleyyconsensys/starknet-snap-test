@@ -35,7 +35,6 @@ jobs:
       - name: Deploy to AWS
         run: | 
           echo "Deployed Dapp to : $AWS_S3_URL"
-          aws s3 sync ./packages/wallet-ui/build "$AWS_S3_URL"
         env:
           AWS_S3_URL: ${{ secrets.AWS_S3_URL }}
       - name: Invalid aws cloudfront cache
@@ -44,10 +43,6 @@ jobs:
           echo "$AWS_CLOUDFRONT_DISTRIBUTIONS_ID" | tr ',' '\n' | while read -r DISTRIBUTIONS_ID  
           do
               echo "Processing Distribution ID : $DISTRIBUTIONS_ID"
-              INVALIDATION_ID="$(aws cloudfront create-invalidation --distribution-id "$DISTRIBUTIONS_ID" --paths "/starknet/*" | grep Id | awk -F'"' '{ print $4}')"
-              echo "Waiting for invalidation $INVALIDATION_ID"
-              aws cloudfront wait invalidation-completed --id "$INVALIDATION_ID" --distribution-id "$DISTRIBUTIONS_ID"
-              echo "Invalidation $INVALIDATION_ID completed"
           done
         env: 
           AWS_CLOUDFRONT_DISTRIBUTIONS_ID: ${{ secrets.AWS_CLOUDFRONT_DISTRIBUTIONS_ID }}
