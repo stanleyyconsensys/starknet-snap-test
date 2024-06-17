@@ -54,8 +54,6 @@ jobs:
       VERSION: ${{ steps.prepare_parameters.outputs.VERSION }}
       TAG: ${{ steps.prepare_parameters.outputs.TAG }}
       ENV: ${{ steps.prepare_parameters.outputs.ENV }}
-      AWS_CLOUDFRONT_DISTRIBUTIONS_ID: ${{ vars.AWS_CLOUDFRONT_DISTRIBUTIONS_ID }}
-      AWS_S3_URL: ${{ vars.AWS_S3_URL }}
 
   install-build:
     needs: 
@@ -109,28 +107,94 @@ jobs:
             ./node_modules/.yarn-state.yml
           key: ${{ github.sha }}
 
-  deploy-snap:
-    needs: 
-      - perpare-deployment
-      - install-build
-    name: Deploy Snap
-    permissions:
-      contents: write
-    uses: ./.github/workflows/publish-release.yml
-    secrets:
-      NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-      TAG: ${{ needs.perpare-deployment.outputs.TAG }}
+  publish-npm-dry-run:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          ref: ${{ github.sha }}
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 20.x
+      - uses: actions/cache@v3
+        id: restore-build
+        with:
+          # add /packages/snap/snap.manifest.json to include an updated shasum from build due to version update in auto PR
+          path: |
+            ./packages/starknet-snap/dist/bundle.js
+            ./packages/starknet-snap/snap.manifest.json
+            ./node_modules/.yarn-state.yml
+          key: ${{ github.sha }}
+      - name: Dry Run Publish
+        run: |
+          ls -al ./packages/starknet-snap/dist
+          npm pack ./packages/starknet-snap --tag "$TAG" --access public
+        env:
+          TAG: ${{ needs.perpare-deployment.outputs.TAG }}
 
-  deploy-dapp:
+  publish-npm:
+    runs-on: ubuntu-latest
+    needs: 
+      - publish-npm-dry-run
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          ref: ${{ github.sha }}
+      - uses: actions/setup-node@v3
+        with:
+          node-version: '20.x'
+          registry-url: 'https://registry.npmjs.org'
+      - uses: actions/cache@v3
+        id: restore-build
+        with:
+          # add /packages/snap/snap.manifest.json to include an updated shasum from build due to version update in auto PR
+          path: |
+            ./packages/starknet-snap/dist/bundle.js
+            ./packages/starknet-snap/snap.manifest.json
+            ./node_modules/.yarn-state.yml
+          key: ${{ github.sha }}
+      - name: Run Publish
+        run: |
+          npm pack ./packages/starknet-snap --tag "$TAG" --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          TAG: ${{ needs.perpare-deployment.outputs }}
+
+  deploy-wallet-ui:
+    runs-on: ubuntu-latest
     needs: 
       - perpare-deployment
-      - deploy-snap
-    name: Deploy Dapp
-    permissions:
-      contents: write
-    uses: ./.github/workflows/publish-dapp.yml
-    secrets:
-      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-      AWS_CLOUDFRONT_DISTRIBUTIONS_ID: ${{ needs.perpare-deployment.outputs.AWS_CLOUDFRONT_DISTRIBUTIONS_ID }}
-      AWS_S3_URL: ${{ needs.perpare-deployment.outputs.AWS_S3_URL }}
+      - publish-npm
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: eu-central-1
+      - uses: actions/checkout@v3
+        with:
+          ref: ${{ github.sha }}
+      - uses: actions/cache@v3
+        id: restore-build
+        with:
+          path: |
+            ./packages/wallet-ui/build/*
+            ./node_modules/.yarn-state.yml
+          key: ${{ github.sha }}
+      - name: Deploy to AWS
+        run: | 
+          echo "Deployed Dapp to : $AWS_S3_URL"
+        env:
+          AWS_S3_URL: ${{ secrets.AWS_S3_URL }}
+      - name: Invalid aws cloudfront cache
+        run: |
+          echo "Distribution ID : $AWS_CLOUDFRONT_DISTRIBUTIONS_ID"
+          echo "$AWS_CLOUDFRONT_DISTRIBUTIONS_ID" | tr ',' '\n' | while read -r DISTRIBUTIONS_ID  
+          do
+              echo "Processing Distribution ID : $DISTRIBUTIONS_ID"
+          done
+        env: 
+          AWS_CLOUDFRONT_DISTRIBUTIONS_ID: ${{ vars.AWS_CLOUDFRONT_DISTRIBUTIONS_ID }}
+          AWS_S3_URL: ${{ vars.AWS_S3_URL }}
