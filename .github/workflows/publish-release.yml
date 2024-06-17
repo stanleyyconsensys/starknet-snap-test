@@ -29,6 +29,7 @@ jobs:
           key: ${{ github.sha }}
       - name: Dry Run Publish
         run: |
+          ls -al ./packages/starknet-snap/dist
           npm pack ./packages/starknet-snap --tag "$TAG" --access public
         env:
           TAG: ${{ secrets.TAG }}
