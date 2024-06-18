@@ -21,7 +21,7 @@ jobs:
         uses: actions/setup-node@v3
         with:
           node-version: 20.x
-      - name: Prepare parameters 
+      - name: Prepare Parameters 
         id: prepare_parameters
         run: |
           BASE=$(node -p "require('./packages/starknet-snap/package.json').version")
@@ -98,12 +98,13 @@ jobs:
           ls -al ./packages/starknet-snap/dist
         env:
           VERSION: ${{ needs.perpare-deployment.outputs.VERSION }}
-      - uses: actions/cache@v3
+      - name: Cache Build
+        uses: actions/cache@v3
         id: restore-build
         with:
           path: |
-            ./packages/wallet-ui/build/*
-            ./packages/starknet-snap/dist/*
+            ./packages/wallet-ui/build
+            ./packages/starknet-snap/dist
             ./packages/starknet-snap/snap.manifest.json
             ./node_modules/.yarn-state.yml
           key: ${{ github.sha }}
@@ -121,18 +122,18 @@ jobs:
         uses: actions/setup-node@v3
         with:
           node-version: 20.x
-      - uses: actions/cache@v3
+      - name: Restore Cached Build
+        uses: actions/cache@v3
         id: restore-build
         with:
           # add /packages/snap/snap.manifest.json to include an updated shasum from build due to version update in auto PR
           path: |
-            ./packages/starknet-snap/dist/*
+            ./packages/starknet-snap/dist
             ./packages/starknet-snap/snap.manifest.json
             ./node_modules/.yarn-state.yml
           key: ${{ github.sha }}
       - name: Dry Run Publish
         run: |
-          ls -al ./packages/starknet-snap/dist
           npm pack ./packages/starknet-snap --tag "$TAG" --access public
         env:
           TAG: ${{ needs.perpare-deployment.outputs.TAG }}
@@ -150,12 +151,13 @@ jobs:
         with:
           node-version: '20.x'
           registry-url: 'https://registry.npmjs.org'
-      - uses: actions/cache@v3
+      - name: Restore Cached Build 
+        uses: actions/cache@v3
         id: restore-build
         with:
           # add /packages/snap/snap.manifest.json to include an updated shasum from build due to version update in auto PR
           path: |
-            ./packages/starknet-snap/dist/bundle.js
+            ./packages/starknet-snap/dist
             ./packages/starknet-snap/snap.manifest.json
             ./node_modules/.yarn-state.yml
           key: ${{ github.sha }}
@@ -181,11 +183,12 @@ jobs:
       - uses: actions/checkout@v3
         with:
           ref: ${{ github.sha }}
-      - uses: actions/cache@v3
+      - name: Restore Cached Build 
+        uses: actions/cache@v3
         id: restore-build
         with:
           path: |
-            ./packages/wallet-ui/build/*
+            ./packages/wallet-ui/build
             ./node_modules/.yarn-state.yml
           key: ${{ github.sha }}
       - name: Deploy to AWS
@@ -193,7 +196,7 @@ jobs:
           echo "Deployed Dapp to : $AWS_S3_URL"
         env:
           AWS_S3_URL: ${{ secrets.AWS_S3_URL }}
-      - name: Invalid aws cloudfront cache
+      - name: Invalid AWS CDN Cache
         run: |
           echo "Distribution ID : $AWS_CLOUDFRONT_DISTRIBUTIONS_ID"
           echo "$AWS_CLOUDFRONT_DISTRIBUTIONS_ID" | tr ',' '\n' | while read -r DISTRIBUTIONS_ID  
