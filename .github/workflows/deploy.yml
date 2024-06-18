@@ -95,6 +95,7 @@ jobs:
       - name: Build UI
         run: |
           REACT_APP_SNAP_VERSION="$VERSION" yarn workspace wallet-ui build 
+          ls -al ./packages/starknet-snap/dist
         env:
           VERSION: ${{ needs.perpare-deployment.outputs.VERSION }}
       - uses: actions/cache@v3
@@ -102,7 +103,7 @@ jobs:
         with:
           path: |
             ./packages/wallet-ui/build/*
-            ./packages/starknet-snap/dist/bundle.js
+            ./packages/starknet-snap/dist/*
             ./packages/starknet-snap/snap.manifest.json
             ./node_modules/.yarn-state.yml
           key: ${{ github.sha }}
@@ -125,7 +126,7 @@ jobs:
         with:
           # add /packages/snap/snap.manifest.json to include an updated shasum from build due to version update in auto PR
           path: |
-            ./packages/starknet-snap/dist/bundle.js
+            ./packages/starknet-snap/dist/*
             ./packages/starknet-snap/snap.manifest.json
             ./node_modules/.yarn-state.yml
           key: ${{ github.sha }}
