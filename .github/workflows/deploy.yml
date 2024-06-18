@@ -72,6 +72,7 @@ jobs:
       - name: Install
         run: |
           yarn install --no-immutable
+          yarn allow-scripts
       - name: Build Snap
         run: |
           npm --prefix ./packages/starknet-snap version --new-version "$VERSION" --no-git-tag-version --allow-same-version
@@ -84,9 +85,6 @@ jobs:
             echo "Version mismatch"
             exit 1
           fi
-
-          ls -al ./packages/starknet-snap/dist
-          
         env:
           SNAP_ENV: ${{ needs.perpare-deployment.outputs.ENV }}
           VERSION: ${{ needs.perpare-deployment.outputs.VERSION }}
@@ -94,8 +92,7 @@ jobs:
           ALCHEMY_API_KEY: ${{ secrets.ALCHEMY_API_KEY }}
       - name: Build UI
         run: |
-          REACT_APP_SNAP_VERSION="$VERSION" yarn workspace wallet-ui build 
-          ls -al ./packages/starknet-snap/dist
+          REACT_APP_SNAP_VERSION="$VERSION" yarn workspace wallet-ui build
         env:
           VERSION: ${{ needs.perpare-deployment.outputs.VERSION }}
       - name: Cache Build
